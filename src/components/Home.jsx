@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useState } from "react";
 
 //components
 import HeroImage from "./elements/HeroImage";
@@ -9,52 +9,69 @@ import LoadMoreBtn from "./elements/LoadMoreBtn";
 import Spinner from "./elements/Spinner";
 
 import {
-  API_URL,
-  API_KEY,
   IMAGE_BASE_URL,
   BACKDROP_SIZE,
   POSTER_SIZE,
+  API_URL,
+  API_KEY,
 } from "../config";
 
+//custom Hook
+import { useHomeFetch } from "./Hooks/useHomeFetch";
+
+import {} from "./images/no_image.jpg";
+
 const Home = () => {
-  const [state, setstate] = useState({ movies: [] });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [
+    {
+      state: { movies, currentPage, totalPages, heroImage },
+      loading,
+      error,
+    },
+    fetchMovies,
+  ] = useHomeFetch();
+  const [searchTerm, setSearchTerm] = useState("");
 
-  console.log(state);
+  const loadMoreMovies = () => {
+    const searchEndpoint = `${API_URL}search/movie?api_key=${API_KEY}&query=${searchTerm}&page=${
+      currentPage + 1
+    }`;
+    const popularEndpoint = `${API_URL}search/popular?api_key=${API_KEY}&query=${searchTerm}&page=${
+      currentPage + 1
+    }`;
+    const endpoint = searchTerm ? searchEndpoint : popularEndpoint;
 
-  const fetchMovies = async (endpoint) => {
-    setError(false);
-    setLoading(false);
-    try {
-      const result = await (await fetch(endpoint)).json();
-      console.log(result);
-      
-      setstate((prev) => ({
-        ...prev,
-        movies: [...result.results],
-        heroImage: prev.heroImage || result.results[0],
-        totalPages: result.total_pages,
-      }));
-    } catch (error) {
-      setError(true);
-      console.log(error);
-    }
-    setLoading(false);
+    fetchMovies(endpoint);
   };
 
-  useEffect(() => {
-    fetchMovies(`${API_URL}movie/popular?api_key=${API_KEY}`);
-  },[]);
+  if (error) return <Fragment>Something went wrong</Fragment>;
+  if (!movies[0]) return <Spinner />;
 
   return (
     <Fragment>
-      <HeroImage />
+      <HeroImage
+        image={`${IMAGE_BASE_URL}${BACKDROP_SIZE}${heroImage.backdrop_path}`}
+        title={heroImage.original_title}
+        text={heroImage.overview}
+      />
       <SearchBar />
-      <Grid />
-      <Spinner />
-      <LoadMoreBtn />
-      <MovieThumb />
+      <Grid header={searchTerm ? "Search Result" : "Popular Movies"}>
+        {movies.map((movie) => (
+          <MovieThumb
+            key={movie.id}
+            clickable
+            image={
+              movie.poster_path
+                ? `${IMAGE_BASE_URL}${POSTER_SIZE}${movie.poster_path}`
+                : null
+            }
+            movieId={movie.id}
+            movieName={movie.original_title}
+          />
+        ))}
+      </Grid>
+      {loading && <Spinner />}
+      <LoadMoreBtn text="Load More" callback={loadMoreMovies} />
     </Fragment>
   );
 };
